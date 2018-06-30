@@ -1,0 +1,393 @@
+package Hello
+
+import AbilityObjEditing
+import Firelords
+import Game
+import RegisterEvents
+import Scoreboard
+import LinkedList
+import ClosureTimers
+import Sounds
+import TerrainUtils
+
+class Select extends AbilityDefinitionIllidanChannel
+	construct(int id)
+		super(id)
+		setIconNormal("ReplaceableTextures\\CommandButtons\\BTNInvisibility.blp")
+		setFollowThroughTime(1, 0)
+		setOptions(1, 1)
+		setTargetType(1, 1)
+		setHeroAbility(false)
+		setRequirements("")
+		setLevels(1)
+		setTooltipNormal(1, "Select [|cffffcc00Q|r]")
+		setHotkeyNormal("Q")
+		setTooltipNormalExtended(1, "Steal a neutral hero for your own.")
+		setTargetsAllowed(1, "hero,neutral")
+		setDisableOtherAbilities(1, false)
+		setButtonPositionNormalY(2)
+		setButtonPositionNormalX(0)
+
+class Strength extends AbilityDefinitionBeserk
+	construct(int id)
+		super(id)
+		setButtonPositionNormalX(1)
+		setButtonPositionNormalY(1)
+		setAttackSpeedIncrease(1, 0.)
+		setDamageTakenIncrease(1, 0.)
+		setMovementSpeedIncrease(1, 0.)
+		setDurationHero(1, 0.01)
+		setDurationNormal(1, 0.01)
+		setCheckDependencies(false)
+		setHotkeyNormal("Z")
+		setName("Strength")
+		setTooltipNormal(1, "Strength [|cffffcc00Z|r]")
+		setTooltipNormalExtended(1, "Causes attacks to knock back for a time.|n |n|cffffcc00Duration:|r 5s|n|cffffcc00Cooldown:|r 30s")
+
+class Agility extends AbilityDefinitionBeserk
+	construct(int id)
+		super(id)
+		setIconNormal("ReplaceableTextures\\CommandButtons\\BTNPurge.blp")
+		setButtonPositionNormalX(1)
+		setButtonPositionNormalY(1)
+		setAttackSpeedIncrease(1, 0.)
+		setDamageTakenIncrease(1, 0.)
+		setMovementSpeedIncrease(1, 0.)
+		setDurationHero(1, 0.01)
+		setDurationNormal(1, 0.01)
+		setCheckDependencies(false)
+		setHotkeyNormal("Z")
+		setName("Agility")
+		setTooltipNormal(1, "Agility [|cffffcc00Z|r]")
+		setTooltipNormalExtended(1, "Causes the next move order to dash towards the target location.|n |n|cffffcc00Speed:|r 1100|n|cffffcc00Range:|r 700|n|cffffcc00Cooldown:|r 30s")
+
+class Intelligence extends AbilityDefinitionIllidanChannel
+	construct(int id)
+		super(id)
+		setButtonPositionNormalX(1)
+		setButtonPositionNormalY(1)
+		setIconNormal("ReplaceableTextures\\CommandButtons\\BTNWispSplode.blp")
+		setFollowThroughTime(1, 3.00)
+		setArtTarget("")
+		setArtEffect("")
+		setOptions(1, 3)
+		setTargetType(1, 0)
+		setHeroAbility(false)
+		setRequirements("")
+		setLevels(1)
+		setTooltipNormal(1, "Intelligence [|cffffcc00Z|r]")
+		setHotkeyNormal("Z")
+		setTooltipNormalExtended(1, "After a short channel and delay, heavy damage and mana burn occurs against enemies nearby, and minor healing and mana replenish occurs in the same area against allies.|n |n|cffffcc00Channeling Time:|r 3s|n|cffffcc00Delay:|r 3.5s|n|cffffcc00Damage:|r 300|n|cffffcc00Mana Burn:|r 150|n|cffffcc00Heal:|r 200|n|cffffcc00Mana Replenish:|r 100|n|cffffcc00Cooldown:|r 30s")
+		setCooldown(1, 30.0)
+		setDisableOtherAbilities(1, false)
+
+@compiletime function ctor()
+	new Select('anus')
+	new Strength('butt')
+	new Agility('fast')
+	new Intelligence('war3')
+
+function unit.addSpeciality()
+	if this.isType(UNIT_TYPE_HERO)
+		let agili = this.getAgi(true)
+		let stren = this.getStr(true)
+		let intel = this.getInt(true)
+
+		if agili > stren
+			if agili > intel
+				// Agi
+				this..addAbility('fast')..makeAbilityPermanent('fast', true)
+			else
+				// Int
+				this..addAbility('war3')..makeAbilityPermanent('war3', true)
+		else
+			if stren > intel
+				// Str
+				this..addAbility('butt')..makeAbilityPermanent('butt', true)
+			else
+				// Int
+				this..addAbility('war3')..makeAbilityPermanent('war3', true)
+
+let forces = new LinkedList<force>()
+function setupForces()
+	let force0 = CreateForce()
+	for i = 0 to 6 step 2
+		force0.addPlayer(Player(i))
+	forces.push(force0)
+
+	let force1 = CreateForce()
+	for i = 1 to 7 step 2
+		force1.addPlayer(Player(i))
+	forces.push(force1)
+
+	for i = 8 to 20 step 4
+		let f = CreateForce()
+		for j = i to i+3
+			if j == 24
+				print("Off-by-one!")
+
+			f.addPlayer(Player(j))
+		forces.push(f)
+
+	if forces.size() != 6
+		print("Bad force count!")
+
+function select()
+	if GetSpellTargetUnit().getOwner().getId() == PLAYER_NEUTRAL_PASSIVE
+		GetSpellTargetUnit()..setOwner(GetTriggerUnit().getOwner(), true)..addSpeciality()
+		GetTriggerUnit().remove()
+
+let grp = CreateGroup()
+weathereffect weather
+var _counter = 0
+function winCondition()
+	var livePlayers = 0
+	var forceIdx = -1
+	var whichForce = -1
+	for frc in forces
+		forceIdx += 1
+		_counter = 0
+		ForForce(frc) ->
+			GroupEnumUnitsOfPlayer(grp, GetEnumPlayer(), null)
+			for u in grp
+				if u.isAlive() and u.getTypeId() != 'ushd' and u.getOwner() != Player(PLAYER_NEUTRAL_PASSIVE)
+					_counter += 1
+					break
+
+		if _counter > 0
+			whichForce = forceIdx
+			livePlayers += 1
+
+		if livePlayers > 1
+			return
+
+	if livePlayers < 2
+		if whichForce == -1
+			print("Tie! Everyone's dead.")
+		else
+			print("|cffffcc00Team " + (whichForce + 1).toString() + "|r emerged victorious!")
+			incrementScore(whichForce)
+
+		doAfter(0.) ->
+			for u in grp..enumUnitsInRect(bj_mapInitialPlayableArea)
+				if u.getOwner() != Player(PLAYER_NEUTRAL_AGGRESSIVE)
+					u.setInvulnerable(true)
+					u.pause()
+					u.setTimeScale(0.)
+
+		EnableWeatherEffect(weather, false)
+		FogMaskEnable(false)
+		CreateSound(Sounds.hint, false, false, false, 12700, 12700, "")..play()
+		doAfter(2.) () ->
+			RemoveWeatherEffect(weather)
+			weather = AddWeatherEffect(bj_mapInitialPlayableArea, 'LRaa')
+			EnableWeatherEffect(weather, true)
+			FogEnable(false)
+			CreateSound(Sounds.heroicVictory, false, false, false, 12700, 12700, "")..play()
+
+			print("|cffffcc00The next round will begin shortly...|r")
+
+			doAfter(6.) ->
+				EnableWeatherEffect(weather, false)
+				FogEnable(true)
+				doAfter(2.) ->
+					RemoveWeatherEffect(weather)
+					FogMaskEnable(true)
+
+					startRound()
+
+function death()
+	if GetTriggerUnit().getOwner() == Player(PLAYER_NEUTRAL_AGGRESSIVE)
+		return
+
+	grp.enumUnitsInRect(bj_mapInitialPlayableArea)
+	for u in grp
+		if u.isAlive() and (u.getOwner().isAllyOf(GetTriggerPlayer()) or u.getOwner() == GetTriggerPlayer()) and u.getOwner() != Player(PLAYER_NEUTRAL_PASSIVE) and u.getOwner() != Player(PLAYER_NEUTRAL_AGGRESSIVE) and u.getTypeId() != 'ushd'
+			return
+
+	print("A team was defeated!")
+
+	winCondition()
+
+function singlePlayerShades()
+	for i = 0 to 23
+		createUnit(Player(0),
+				   'ushd',
+				   Player(i).getStartLocation(),
+				   angle(0.))..addAbility('anus')
+
+function singlePlayerKill()
+	grp.enumUnitsSelected(Player(0), null)
+	for u in grp
+		u.kill()
+
+function singlePlayerEnemy()
+	grp.enumUnitsSelected(Player(0), null)
+	createUnit(Player(1), 'Hmkg', FirstOfGroup(grp).getPos(), angle(0))
+
+function teamname()
+	let name = GetEventPlayerChatString().substring(".teamname ".length())
+	var forceIdx = -1
+	for frc in forces
+		forceIdx += 1
+		if frc.containsPlayer(GetTriggerPlayer())
+			break
+	renameTeam(forceIdx, name)
+
+int array heroTypes
+function getRandomHeroType() returns int
+	return heroTypes[GetRandomInt(0, 23)]
+
+let neutralHeroPlaces = new LinkedList<location>()
+
+function startRound()
+	print("|cffffcc00Round|r " + getRound().toString())
+	bumpRound()
+
+	let roundRef = getRound()
+	bumpRoundStartTime()
+
+	doAfter(1.) ->
+		if roundRef == getRound()
+			CreateSound(Sounds.hint, false, false, false, 12700, 12700, "")..play()
+
+	initializeFirelordRound()
+
+	weather = AddWeatherEffect(bj_mapInitialPlayableArea, 'RLhr')
+	EnableWeatherEffect(weather, true)
+
+	grp.enumUnitsInRect(bj_mapInitialPlayableArea)
+	for u in grp
+		if u.isType(UNIT_TYPE_HERO)
+			clearFirelordFor(u)
+			u.remove()
+	for i = 0 to 23
+		doAfter(0.) ->
+			GroupEnumUnitsOfPlayer(grp, Player(i), null)
+			for u in grp
+				if u.isType(UNIT_TYPE_HERO)
+					clearFirelordFor(u)
+					u.remove()
+
+	for loc in neutralHeroPlaces
+		createUnit(Player(PLAYER_NEUTRAL_PASSIVE), getRandomHeroType(), vec2(GetLocationX(loc), GetLocationY(loc)), angle(3. * bj_PI / 2.))
+
+	// `Select` ability.
+	registerSpellEffectEvent('anus', function select)
+
+	for i = 0 to 23
+		if GetPlayerSlotState(Player(i)) == PLAYER_SLOT_STATE_PLAYING
+			let u = createUnit(Player(i),
+			                   'ushd',
+			                   Player(i).getStartLocation(),
+			                   angle(0.))..addAbility('anus')
+			Player(i).selectSingle(u)
+			SetPlayerState(Player(i), PLAYER_STATE_RESOURCE_GOLD, 5000)
+			SetPlayerState(Player(i), PLAYER_STATE_RESOURCE_LUMBER, 5000)
+
+	// Reassign waygates.
+	grp.enumUnitsInRect(bj_mapInitialPlayableArea)
+	for u in grp
+		if u.getTypeId() == 'nwgt'
+			var nz = 30
+			WaygateActivate(u, false)
+
+			doPeriodically(1.) cb ->
+				if roundRef == getRound()
+					nz -= 1
+
+					if nz > 0
+						createTTEx(u.getPos3Real(), vec2(0., 0.1), nz.toString(), 10., 1., colorA(255, 255, 255, 255))
+					else
+						let snd = CreateSound(Sounds.hint, false, true, false, 12700, 12700, "")
+						SetSoundPosition(snd, u.getX(), u.getY(), u.getPos().getTerrainZ())
+						snd.play()
+
+						destroy cb
+						var p = vec2(-3000, 0.)
+						let n = vec2(0., 64.)
+						let e = vec2(64., 0.)
+						let s = vec2(0., -64.)
+						let w = vec2(-64., 0.)
+						while not (p.isTerrainWalkable() and (p + n).isTerrainWalkable() and (p + e).isTerrainWalkable() and (p + s).isTerrainWalkable() and (p + w).isTerrainWalkable())
+							p = vec2(GetRandomReal(-2000., 11463.), GetRandomReal(-7601., 1922.))
+
+						WaygateSetDestination(u, p.x, p.y)
+						WaygateActivate(u, true)
+
+init
+	var playerCount = 0
+	for i = 0 to 23
+		if GetPlayerSlotState(Player(i)) == PLAYER_SLOT_STATE_PLAYING
+			if GetPlayerController(Player(i)) == MAP_CONTROL_USER
+				playerCount += 1
+
+	if playerCount < 2
+		CreateTrigger()
+			..registerPlayerChatEvent(Player(0), ".shades", true)
+			..addCondition(Condition(function singlePlayerShades))
+
+		CreateTrigger()
+			..registerPlayerChatEvent(Player(0), ".kill", true)
+			..addCondition(Condition(function singlePlayerKill))
+
+		CreateTrigger()
+			..registerPlayerChatEvent(Player(0), ".enemy", true)
+			..addCondition(Condition(function singlePlayerEnemy))
+
+	let t = CreateTrigger()..addCondition(Condition(function teamname))
+	for i = 0 to 23
+		t.registerPlayerChatEvent(Player(i), ".teamname", false)
+
+	GroupEnumUnitsOfPlayer(grp, Player(PLAYER_NEUTRAL_PASSIVE), null)
+	for u in grp
+		if u.isType(UNIT_TYPE_HERO)
+			neutralHeroPlaces.push(GetUnitLoc(u))
+
+	// Win/lose conditions.
+	registerPlayerUnitEvent(EVENT_PLAYER_UNIT_DEATH, function death)
+
+	heroTypes[0] = 'Nalc'
+	heroTypes[1] = 'Hamg'
+	heroTypes[2] = 'Nbst'
+	heroTypes[3] = 'Obla'
+	heroTypes[4] = 'Hblm'
+	heroTypes[5] = 'Ucrl'
+	heroTypes[6] = 'Nbrn'
+	heroTypes[7] = 'Udea'
+	heroTypes[8] = 'Edem'
+	heroTypes[9] = 'Udre'
+	heroTypes[10] = 'Ofar'
+	heroTypes[11] = 'Nfir'
+	heroTypes[12] = 'Ekee'
+	heroTypes[13] = 'Ulic'
+	heroTypes[14] = 'Hmkg'
+	heroTypes[15] = 'Nngs'
+	heroTypes[16] = 'Hpal'
+	heroTypes[17] = 'Npbm'
+	heroTypes[18] = 'Nplh'
+	heroTypes[19] = 'Emoo'
+	heroTypes[20] = 'Oshd'
+	heroTypes[21] = 'Otch'
+	heroTypes[22] = 'Ntin'
+	heroTypes[23] = 'Ewar'
+
+	// Set up forces.
+	setupForces()
+
+	startRound()
+
+@test function forLoopBehavior()
+	let l = new LinkedList<bool>()
+	for i = 0 to 10
+		l.push(true)
+	l.size().assertEquals(10)
+
+	destroy l
+
+	let l2 = new LinkedList<bool>()
+	for i = 0 to 10 step 2
+		l2.push(true)
+	l2.size().assertEquals(5)
+
+	destroy l2

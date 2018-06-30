@@ -1,0 +1,40 @@
+package Scoreboard
+
+import ClosureTimers
+
+int array scores
+let mb = CreateMultiboard()
+
+public function incrementScore(int forceIdx)
+    scores[forceIdx] += 1
+    mb.getItem(forceIdx + 1, 1)..setValue(scores[forceIdx].toString())..release()
+
+public function renameTeam(int forceIdx, string name)
+    if forceIdx < 0 or forceIdx > 5
+        print("Rename: Bad force index")
+    else
+        mb.getItem(forceIdx + 1, 0)..setValue(name)..release()
+
+init
+    scores[0] = 0
+    scores[1] = 0
+    scores[2] = 0
+    scores[3] = 0
+    scores[4] = 0
+    scores[5] = 0
+    doAfter(.5) ->
+        mb.setColumnCount(2)
+        mb.setRowCount(7)
+        mb.setItemsStyle(true, false)
+        mb.setTitle("thw hero arena <3")
+        // mb.setItemsValue("hello")
+        // mb.setItemsWidth(6)
+        mb.getItem(0, 0)..setWidth(.06)..release()
+        mb.getItem(0, 1)..setWidth(.06)..release()
+        mb.getItem(0, 0)..setValue("Team")..release()
+        mb.getItem(0, 1)..setValue("Score")..release()
+        for i = 1 to 6
+            mb.getItem(i, 0)..setValue(i.toString())..setWidth(.06)..release()
+            mb.getItem(i, 1)..setValue("0")..setWidth(.06)..release()
+
+        mb..display(true)..minimalize(false)

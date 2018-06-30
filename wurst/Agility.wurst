@@ -1,0 +1,97 @@
+package Agility
+
+import HashMap
+import TerrainUtils
+import RegisterEvents
+
+constant DURATION = 30.
+constant CLOCK_PERIOD = 1./30.
+constant DASH_SPEED = 1100.
+constant DASH_TOTAL = 700.
+constant DASH_RATE = DASH_SPEED * CLOCK_PERIOD
+
+class CasterData
+    unit caster
+    vec2 velocity
+    vec2 target
+    real distanceLeft
+    timer clock
+    trigger dexListener
+
+    construct(unit caster)
+        this.caster = caster
+        this.velocity = vec2(0., 0.)
+        this.target = vec2(0., 0.)
+        this.distanceLeft = DASH_TOTAL
+        this.clock = CreateTimer() // The fast clock.
+        this.dexListener = CreateTrigger()
+            ..registerUnitEvent(caster, EVENT_UNIT_ISSUED_POINT_ORDER)
+            ..addCondition(Condition(function c))
+
+    ondestroy
+        this.dexListener.destr()
+        this.clock.destr()
+
+integer smartOrder
+
+// Track the spell-effect duration (long-form).
+let slowClockData = new HashMap<timer, CasterData>()
+
+// Track the dash data (animation period).
+let fastClockData = new HashMap<timer, CasterData>()
+
+// Track the data from the caster as well for order-callbacks.
+let casterMapData = new HashMap<unit, CasterData>()
+
+// periodic function for handling the dash
+function p()
+    let tim = GetExpiredTimer()
+    CasterData d = fastClockData.get(tim)
+    let newPos = d.caster.getPos() + d.velocity
+    if newPos.isTerrainWalkable()
+        d.caster.setXY(newPos)
+        d.distanceLeft -= DASH_RATE
+        if d.distanceLeft <= 0.
+            PauseTimer(tim)
+        else if d.caster.getPos().distanceToSq(d.target) < 4. * DASH_RATE * DASH_RATE
+            PauseTimer(tim)
+    else
+        PauseTimer(tim)
+
+
+// Dynamic trigger listener for right clicks.
+function c() returns bool
+    unit tU = GetTriggerUnit()
+    let data = casterMapData.get(tU)
+
+    // was the order a right-click?
+    if GetIssuedOrderId() == smartOrder
+        data.target = vec2(GetOrderPointX(), GetOrderPointY())
+        data.velocity = vec2(0., 0.).polarOffset(data.caster.getPos().angleTo(data.target), DASH_SPEED * CLOCK_PERIOD)
+        fastClockData.put(data.clock, data)
+        DisableTrigger(data.dexListener)
+        TimerStart(data.clock, CLOCK_PERIOD, true, function p)
+
+    return false
+
+// After the long-form timer finishes, destroy the listener.
+function after()
+    timer tim = GetExpiredTimer()
+    CasterData d = slowClockData.get(tim)
+
+    // Clean up
+    destroy d
+    DestroyTimer(tim)
+
+// Ability cast.
+function a()
+    let d = new CasterData(GetTriggerUnit())
+
+    // setup timeout
+    let t = CreateTimer()..start(DURATION, function after)
+    slowClockData.put(t, d)
+    casterMapData.put(GetTriggerUnit(), d)
+
+init
+    registerSpellEffectEvent('fast', function a)
+    smartOrder = OrderId("smart")

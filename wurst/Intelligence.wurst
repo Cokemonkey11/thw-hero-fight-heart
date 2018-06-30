@@ -1,0 +1,104 @@
+package Intelligence
+
+import Assets
+import DamageType
+import LinkedListModule
+import RegisterEvents
+import ClosureTimers
+
+constant RAGNORAKID = 'A004'
+constant HAMMERID   = 'h00A'
+constant CHANNEL_PATH = Abilities.arcaneTowerAttack
+constant SECOND_PATH  = Abilities.spellBreakerAttack
+constant DAMAGE_PATH  = Abilities.lightningBoltMissile
+constant DAMAGE_PATH2 = Doodads.lightningbolt
+constant HEAL_PATH    = Abilities.healingSalveTarget
+
+constant FSM_POINTS = vec3(
+    3.,  // Until cannel-time done.
+    3.5, // Until effect-time done.
+    4.   // Until cleanup effects.
+)
+constant RADIUS          = 400.
+constant DAMAGE          = 300.
+constant MANA_BURN       = 150.
+constant HEAL            = 200.
+constant REPLENISH       = 100.
+constant INTERRUPT_RANGE =  64.
+
+group grp = CreateGroup()
+real tX
+real tY
+
+function effect.destr(real t)
+    doAfter(t) ->
+        this.destr()
+
+class CastFsm
+    use LinkedListModule
+
+    static timer clock = CreateTimer()
+
+    unit caster
+    vec2 target
+    vec2 uninterruptedPos
+    real timeElapsed
+    bool damaged
+
+    construct(unit caster, vec2 target)
+        this.caster = caster
+        this.target = target
+        this.timeElapsed = 0.
+        this.damaged = false
+        this.uninterruptedPos = caster.getPos()
+
+        if size == 1
+            clock.startPeriodic(ANIMATION_PERIOD, function p)
+
+    ondestroy
+        if size == 1
+            clock.pause()
+
+    static function p()
+        let iter = iterator()
+        while iter.hasNext()
+            let data = iter.next()
+            data.timeElapsed += ANIMATION_PERIOD
+            if not data.damaged and data.timeElapsed <= FSM_POINTS.x
+                if GetUnitCurrentOrder(data.caster) != OrderId("channel") or data.caster.getPos().distanceToSq(data.uninterruptedPos) >= INTERRUPT_RANGE * INTERRUPT_RANGE
+                    data.damaged = true
+                    createTTEx(data.caster.getPos3Real(), vec2(0., 0.1), "Interrupted!", 10., 1., colorA(255, 255, 255, 255))
+                else
+                    for j = 0 to 2
+                        addEffect(CHANNEL_PATH, data.uninterruptedPos.polarOffset(angle(2. * bj_PI * j / 3 + (2. * bj_PI / 3.) * data.timeElapsed / FSM_POINTS.x), RADIUS)).destr()
+
+            else if not data.damaged and data.timeElapsed > FSM_POINTS.x and data.timeElapsed <= FSM_POINTS.y
+                for j = 0 to 2
+                    addEffect(CHANNEL_PATH, data.uninterruptedPos.polarOffset(angle(2. * bj_PI * j / 3 + 5 * (2. * bj_PI / 3.) * data.timeElapsed / FSM_POINTS.y), RADIUS * (FSM_POINTS.y - data.timeElapsed) * 2.)).destr()
+                    addEffect(SECOND_PATH,  data.uninterruptedPos.polarOffset(angle(1.5 * 2. * bj_PI + 2. * bj_PI * j / 3 + 5 * (2. * bj_PI / 3.) * data.timeElapsed / FSM_POINTS.y), RADIUS * (FSM_POINTS.y - data.timeElapsed) * 2.)).destr()
+
+            else if not data.damaged and data.timeElapsed > FSM_POINTS.y and data.timeElapsed <= FSM_POINTS.z
+                grp.enumUnitsInRange(data.caster.getPos(), RADIUS)
+                for fst in grp
+                    if fst.isAlive()
+                        if IsUnitEnemy(fst, data.caster.getOwner())
+                            dealCodeDamage(data.caster, fst, DAMAGE)
+                            fst.setMana(fst.getMana() - MANA_BURN)
+                            fst.addEffect(DAMAGE_PATH, "origin").destr()
+                            fst.addEffect(DAMAGE_PATH2, "origin").destr(1.)
+                        else
+                            fst.setHP(fst.getHP() + HEAL)
+                            fst.setMana(fst.getMana() + REPLENISH)
+                            fst.addEffect(HEAL_PATH, "origin").destr(1.)
+
+                data.damaged = true
+
+            else if data.damaged
+                destroy data
+
+
+function c()
+    new CastFsm(GetTriggerUnit(), vec2(GetSpellTargetX(), GetSpellTargetY()))
+
+init
+    registerSpellEffectEvent('war3', function c)

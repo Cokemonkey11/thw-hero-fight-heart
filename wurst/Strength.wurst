@@ -1,0 +1,25 @@
+package Strength
+
+import RegisterEvents
+import HashMap
+import GameTimer
+import DamageType
+import DamageDetection
+import Knockback3
+
+constant DURATION =   5.
+constant VELOCITY = 1300.
+
+let instants = new HashMap<unit, real>()
+function c()
+    instants.put(GetTriggerUnit(), getElapsedGameTime())
+
+function h()
+    if getDamageType() == DamageType.ATTACK
+        if instants.has(GetEventDamageSource())
+            if getElapsedGameTime() - instants.get(GetEventDamageSource()) < DURATION
+                let ang = GetEventDamageSource().getPos().angleTo(GetTriggerUnit().getPos())
+                Knockback3.add(GetTriggerUnit(), VELOCITY, ang, angle(bj_PI / 7.))
+init
+    registerSpellEffectEvent('butt', function c)
+    addOnDamageFunc(Condition(function h))

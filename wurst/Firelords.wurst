@@ -1,0 +1,91 @@
+package Firelords
+
+import LinkedList
+import ClosureTimers
+import HashMap
+import Game
+
+constant CENTER = vec2(5344., -1830.)
+constant RADIUS = 7800.
+constant INITIAL_COUNT = 128
+constant SAFE_SPOT = vec2(-3000., 2000.)
+
+function unit.safeMove(vec2 xy)
+    if xy.x < 11900. and xy.x > -3600. and xy.y < 3400. and xy.y > -7800.
+        this.setXY(xy)
+    else
+        this.setXY(SAFE_SPOT)
+function unit.safeMovePos(vec2 xy)
+    if xy.x < 11900. and xy.x > -3600. and xy.y < 3400. and xy.y > -7800.
+        this.setPos(xy)
+
+let dudes = new LinkedList<unit>()
+
+let grp = CreateGroup()
+let tab = new HashMap<unit, unit>()
+
+public function clearFirelordFor(unit u)
+    if tab.has(u)
+        tab.get(u).remove()
+
+public function initializeFirelordRound()
+    let roundRef = getRound()
+
+    dudes.forEach() u ->
+        u..pause()..safeMove(SAFE_SPOT)
+
+    doAfter(90.) ->
+        if roundRef == getRound()
+            dudes.forEach() u ->
+                u.unpause()
+
+            doPeriodically(ANIMATION_PERIOD) cb ->
+                if roundRef == getRound()
+                    var i = 0
+                    let r = RADIUS - getElapsedRoundTime() * 5.
+                    for dude in dudes
+                        let l = CENTER.polarOffset(angle(2. * bj_PI * i.toReal() / dudes.size()), r)
+                        dude.safeMove(l)
+                        if (getElapsedRoundTime() * 30).toInt() % 30 == 0
+                            dude.safeMovePos(l)
+
+                        i += 1
+
+                    // Also check heroes outside the circle.
+                    doAfter(0.) ->
+                        if roundRef == getRound()
+                            grp.enumUnitsInRect(bj_mapInitialPlayableArea)
+                            for u in grp
+                                if u.isType(UNIT_TYPE_HERO) and u.getOwner() != Player(PLAYER_NEUTRAL_PASSIVE)
+                                    if u.isAlive() and CENTER.distanceToSq(u.getPos()) > r * r
+                                        if tab.has(u)
+                                            tab.get(u).setXY(u.getPos())
+                                        else
+                                            let u2 = createUnit(Player(PLAYER_NEUTRAL_AGGRESSIVE), 'ndrv', SAFE_SPOT, angle(0))
+                                                ..setXY(u.getPos())
+                                                ..setMoveSpeed(0.)
+                                                ..addAbility('Aloc')
+                                                ..addAbility('Atru')
+                                                ..addAbility('Arav')
+                                                ..setFlyHeight(200., 0.)
+                                                ..setVertexColor(colorA(0, 0, 0, 155))
+                                            UnitAddSleep(u2, false)
+                                            tab.put(u, u2)
+                                    else
+                                        if tab.has(u)
+                                            tab.get(u).setXY(SAFE_SPOT)
+
+init
+    for i = 0 to 23
+        SetPlayerAlliance(Player(PLAYER_NEUTRAL_AGGRESSIVE), Player(i), ALLIANCE_SHARED_VISION, true)
+
+    doPeriodicallyCounted(ANIMATION_PERIOD, INITIAL_COUNT) cb ->
+        let u = createUnit(Player(PLAYER_NEUTRAL_AGGRESSIVE), 'ndrv', SAFE_SPOT, angle(0))
+            ..safeMove(SAFE_SPOT)
+            ..setMoveSpeed(0.)
+            ..addAbility('Aloc')
+            ..addAbility('Atru')
+            ..pause()
+        UnitAddSleep(u, false)
+
+        dudes.push(u)

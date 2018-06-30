@@ -1,0 +1,17 @@
+package Game
+
+import GameTimer
+
+var roundStartTime = 0.
+public function getElapsedRoundTime() returns real
+    return getElapsedGameTime() - roundStartTime
+
+public function bumpRoundStartTime()
+    roundStartTime = getElapsedGameTime()
+
+var round = 1
+public function getRound() returns int
+    return round
+
+public function bumpRound()
+    round += 1

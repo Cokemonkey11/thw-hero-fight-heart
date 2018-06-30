@@ -1,0 +1,8 @@
+---
+projectName: "thwcgn2018jun30herofight"
+dependencies:
+- "https://github.com/wurstscript/wurstStdlib2"
+buildMapData:
+  name: "thw hero fight <3 0.0.5"
+  fileName: "(24)thw-hero-fight-heart-0.0.5"
+  author: "Cokemonkey11"
